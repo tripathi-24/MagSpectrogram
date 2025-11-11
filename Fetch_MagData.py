@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Resilient Magnetic Data Fetcher (Optimized for Large Databases)
----------------------------------------------------------------
-✅ 15-min query windows (fast and safe)
-✅ Streams results without buffering
-✅ Downsamples server-side via id%N=0
-✅ Auto-resume and retry with exponential backoff
+Resilient Magnetic Data Fetcher (ID-based chunking for large datasets)
+---------------------------------------------------------------------
+✅ Fetches data in small ID chunks to avoid server timeouts
+✅ Auto-resumes using last fetched ID
+✅ Downsamples server-side via MOD(id, N)=0
 ✅ Efficient CSV streaming per day
+✅ Handles millions of rows safely
 """
 
 import mysql.connector
@@ -15,6 +15,11 @@ from datetime import datetime, timedelta
 import time
 import os
 import sys
+
+# Set UTF-8 encoding for Windows console
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 # ----------------------------- #
 # 🔧 DATABASE CONFIGURATION
@@ -26,25 +31,31 @@ DB_CONFIG = {
     "database": "dbqnaviitk",
     "port": 3306,
     "connection_timeout": 60,
+    "connect_timeout": 60,
+    "read_timeout": 120,
+    "write_timeout": 120,
     "use_pure": True,
     "consume_results": True
 }
 
 # ----------------------------- #
-# 📅 DATE RANGE (EDIT HERE)
+# 📅 DATE RANGE (Edit for desired day)
 # ----------------------------- #
-START_DATE = datetime(2025, 9, 26)
-END_DATE   = datetime(2025, 9, 27)
+TARGET_DATE = datetime(2025, 10, 23)  # only fetch for 23 Oct 2025
+NEXT_DATE = TARGET_DATE + timedelta(days=1)
 
 # ----------------------------- #
 # ⚙️ PARAMETERS
 # ----------------------------- #
-WINDOW_MINUTES = 15        # fetch data in 15-minute chunks
-MAX_RETRIES = 999          # keep retrying until success
-BASE_BACKOFF = 5           # seconds
-DOWNSAMPLE_MOD = 60        # same as id%60=0 in your example
+CHUNK_SIZE = 5000         # number of rows per chunk
+MAX_RETRIES = 999
+BASE_BACKOFF = 5
+DOWNSAMPLE_MOD = 60       # keep only rows where MOD(id, 60) = 0
 OUTPUT_DIR = "Fetched_Data"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+CSV_FILE = os.path.join(OUTPUT_DIR, f"MagneticData_{TARGET_DATE.strftime('%Y-%m-%d')}.csv")
+RESUME_FILE = os.path.join(OUTPUT_DIR, f"last_id_{TARGET_DATE.strftime('%Y-%m-%d')}.txt")
 
 # ----------------------------- #
 # 🧠 QUERY TEMPLATE
@@ -52,84 +63,103 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 QUERY_TEMPLATE = f"""
 SELECT id, sensor_id, timestamp, b_x, b_y, b_z, lat, lon, alt, theta_x, theta_y, theta_z
 FROM qnav_magneticdatamodel
-WHERE timestamp BETWEEN %s AND %s
-  AND id %% {DOWNSAMPLE_MOD} = 0
+WHERE id > %s AND id <= %s
+  AND MOD(id, {DOWNSAMPLE_MOD}) = 0
 ORDER BY id ASC;
 """
 
 # ----------------------------- #
-# 🔁 Function: Fetch Data in Small Time Windows
+# 🔁 Function to get min/max ID for the day
 # ----------------------------- #
-def fetch_time_window(date_from, date_to, csv_path):
-    """Fetch one small time window and append to CSV."""
+def get_id_range():
+    retries = 0
+    while retries < MAX_RETRIES:
+        try:
+            conn = mysql.connector.connect(**DB_CONFIG)
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT MIN(id), MAX(id) FROM qnav_magneticdatamodel "
+                "WHERE timestamp BETWEEN %s AND %s;",
+                (TARGET_DATE.strftime("%Y-%m-%d 00:00:00"), NEXT_DATE.strftime("%Y-%m-%d 00:00:00"))
+            )
+            min_id, max_id = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            return min_id or 0, max_id or 0
+        except mysql.connector.Error as err:
+            retries += 1
+            delay = min(BASE_BACKOFF * (2 ** (retries - 1)), 300)
+            print(f"   ⚠️ Error getting ID range: {err}, retrying in {delay}s...")
+            time.sleep(delay)
+        except Exception as e:
+            print(f"   🚨 Unexpected error: {e}")
+            time.sleep(10)
+
+# ----------------------------- #
+# 🔁 Fetch chunk by ID
+# ----------------------------- #
+def fetch_chunk(id_min, id_max, csv_path):
     retries = 0
     while retries < MAX_RETRIES:
         try:
             conn = mysql.connector.connect(**DB_CONFIG)
             cursor = conn.cursor(dictionary=True, buffered=False)
-
-            cursor.execute(QUERY_TEMPLATE, (
-                date_from.strftime("%Y-%m-%d %H:%M:%S"),
-                date_to.strftime("%Y-%m-%d %H:%M:%S")
-            ))
-
+            cursor.execute(QUERY_TEMPLATE, (id_min, id_max))
             rows = []
             count = 0
             for row in cursor:
                 rows.append(row)
                 count += 1
-                if len(rows) >= 5000:
+                if len(rows) >= 2000:
                     df = pd.DataFrame(rows)
                     df.to_csv(csv_path, mode='a', index=False, header=not os.path.exists(csv_path))
                     rows.clear()
-
-            # flush remaining
             if rows:
                 df = pd.DataFrame(rows)
                 df.to_csv(csv_path, mode='a', index=False, header=not os.path.exists(csv_path))
-
             cursor.close()
             conn.close()
-
-            print(f"   ✅ {date_from.strftime('%H:%M')}–{date_to.strftime('%H:%M')} | {count} rows")
-            return  # success → exit retry loop
-
+            print(f"   ✅ IDs {id_min}-{id_max} | {count} rows")
+            return count
         except mysql.connector.Error as err:
             retries += 1
             delay = min(BASE_BACKOFF * (2 ** (retries - 1)), 300)
             print(f"   ⚠️ Lost connection: {err}")
             print(f"   🔄 Retrying after {delay}s (attempt {retries}/{MAX_RETRIES})...")
             time.sleep(delay)
-            continue
         except KeyboardInterrupt:
             print("\n🛑 Interrupted by user.")
             sys.exit(0)
         except Exception as e:
             print(f"   🚨 Unexpected error: {e}")
             time.sleep(10)
-            continue
-
 
 # ----------------------------- #
 # 🧩 MAIN LOOP
 # ----------------------------- #
 if __name__ == "__main__":
-    current_date = START_DATE
+    print(f"\n📅 Fetching magnetic data for {TARGET_DATE.date()}")
+    
+    # Load last fetched ID if exists (resume feature)
+    if os.path.exists(RESUME_FILE):
+        with open(RESUME_FILE, "r") as f:
+            last_id = int(f.read().strip())
+        print(f"🔁 Resuming from last ID: {last_id}")
+    else:
+        min_id, max_id = get_id_range()
+        last_id = min_id - 1
+        print(f"ID range for the day: {min_id}-{max_id}")
 
-    while current_date < END_DATE:
-        next_date = current_date + timedelta(days=1)
-        csv_path = os.path.join(OUTPUT_DIR, f"MagneticData_{current_date.strftime('%Y-%m-%d')}.csv")
+    # Determine max_id for the day
+    _, max_id = get_id_range()
+    
+    while last_id < max_id:
+        next_id = min(last_id + CHUNK_SIZE, max_id)
+        fetch_chunk(last_id, next_id, CSV_FILE)
+        last_id = next_id
 
-        print(f"\n📅 Fetching data for {current_date.date()}")
+        # Save last fetched ID to resume file
+        with open(RESUME_FILE, "w") as f:
+            f.write(str(last_id))
 
-        window_start = current_date
-        while window_start < next_date:
-            window_end = min(window_start + timedelta(minutes=WINDOW_MINUTES), next_date)
-            print(f"⏱️  Window: {window_start.strftime('%H:%M')}–{window_end.strftime('%H:%M')}")
-            fetch_time_window(window_start, window_end, csv_path)
-            window_start = window_end
-
-        print(f"✅ Completed {current_date.date()}")
-        current_date = next_date
-
-    print("\n🎯 All days fetched successfully.")
+    print(f"\n🎯 Completed fetching for {TARGET_DATE.date()}")

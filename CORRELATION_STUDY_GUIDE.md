@@ -101,7 +101,7 @@ Resultant = √(Bx² + By² + Bz²)
 - Data should include timestamp, sensor_id, and magnetic field components (b_x, b_y, b_z)
 
 ### Accessing the Feature
-1. Run the main application: `streamlit run app_simplified_v2.py`
+1. Run the main application: `streamlit run app_v2_07Nov25.py`
 2. Load the data using the "Import Data" section
 3. Click on the "🔗 Correlation Study" tab
 
@@ -165,7 +165,7 @@ Resultant = √(Bx² + By² + Bz²)
 
 ## 📊 Comprehensive Visualization Methods
 
-The app provides five different visualization methods to help you understand correlation relationships from different perspectives:
+The app provides ten different visualization methods to help you understand correlation relationships from different perspectives. These include both interactive Plotly visualizations and static Seaborn visualizations:
 
 ### 1. **Comprehensive Dashboard** (Default)
 A 2×2 grid showing four related plots:
@@ -263,6 +263,74 @@ Three-dimensional visualization:
 #### **Interactive Rotation**
 - **Feature**: Click and drag to rotate the 3D plot
 - **Purpose**: View data from different angles
+
+### 6. **Seaborn Scatterplot**
+Static scatter plot with regression line using Seaborn:
+
+#### **Features**
+- **Scatter points**: Data points with adjustable opacity and size
+- **Regression line**: Red line showing linear relationship
+- **Grid background**: White grid for easier reading
+- **Correlation annotation**: Title shows correlation coefficient
+- **Purpose**: Clean, publication-ready static visualization
+
+### 7. **Seaborn Heatmap**
+Correlation matrix heatmap visualization:
+
+#### **2×2 Correlation Matrix**
+- **What it shows**: Correlation values between the two sensors
+- **Color coding**: Red-blue scale (RdBu_r) with white at zero
+- **Annotated values**: Exact correlation coefficients displayed
+- **Square format**: Symmetric matrix layout
+- **Purpose**: Quick visual summary of correlation strength
+
+### 8. **Seaborn Correlogram**
+Multi-panel analysis view (2×2 grid):
+
+#### **Panel 1: Scatter Plot with Regression**
+- Shows data relationship with regression line
+- Displays correlation coefficient in title
+
+#### **Panel 2: Distribution of Sensor 1**
+- Histogram with KDE (Kernel Density Estimation) curve
+- Shows data distribution for first sensor
+
+#### **Panel 3: Distribution of Sensor 2**
+- Histogram with KDE for second sensor
+- Shows data distribution for second sensor
+
+#### **Panel 4: Correlation Statistics**
+- Text box with all correlation metrics
+- Includes Pearson, Spearman, R², p-values, and data points
+- **Purpose**: Comprehensive overview in a single view
+
+### 9. **Seaborn Bubble Plot**
+Bubble chart showing time progression:
+
+#### **Bubble Properties**
+- **Size**: Bubble size represents time progression (larger = later in time)
+- **Color**: Bubble color also represents time (Viridis colormap)
+- **Edge colors**: Black borders for better visibility
+- **Regression line**: Red line showing linear relationship
+
+#### **Time Encoding**
+- Both size and color encode temporal information
+- Colorbar shows time scale in seconds from start
+- **Purpose**: Visualize how correlation evolves over time
+
+### 10. **Seaborn Connected Scatter**
+Connected scatter plot showing temporal sequence:
+
+#### **Connected Points**
+- **Line connection**: Points connected in temporal order
+- **Color gradient**: Points colored by time progression
+- **Overlay**: Both line and colored scatter points
+- **Regression line**: Dashed red line showing correlation
+
+#### **Temporal Visualization**
+- Shows how data points move through the correlation space over time
+- Helps identify time-dependent patterns
+- **Purpose**: Understand temporal evolution of sensor relationship
 
 ## 🎯 Advanced Visualization Features
 
@@ -386,11 +454,16 @@ The app provides automatic interpretation with color-coded indicators:
 - **Different orientations**: Understand directional effects
 
 #### **4. Visualization Selection**
-- **Comprehensive Dashboard**: Best for detailed analysis
-- **Simple Scatter**: Quick overview of relationship
-- **Time Series Overlay**: See temporal patterns
-- **3D Scatter**: Understand time evolution
-- **Density Heatmap**: Identify data clustering
+- **Comprehensive Dashboard**: Best for detailed analysis (4-panel view)
+- **Simple X-Y Scatter**: Quick overview with confidence intervals
+- **Time Series Overlay**: See temporal patterns with dual y-axis
+- **Density Heatmap**: Identify data clustering patterns
+- **3D Scatter Plot**: Understand time evolution in 3D space
+- **Seaborn Scatterplot**: Clean static plot for publications
+- **Seaborn Heatmap**: Correlation matrix visualization
+- **Seaborn Correlogram**: Multi-panel comprehensive view
+- **Seaborn Bubble Plot**: Time progression with bubble sizes
+- **Seaborn Connected Scatter**: Temporal sequence visualization
 
 #### **5. Interpreting Results**
 - **Consider physical meaning**: What do correlations tell you about the magnetic field?
@@ -808,10 +881,15 @@ This comprehensive guide has covered all aspects of the Correlation Study featur
 
 #### **Visualization Methods**:
 - **Comprehensive Dashboard**: 4-panel analysis with scatter, time series, residuals, and correlation matrix
-- **Simple Scatter**: Enhanced scatter plot with confidence intervals
+- **Simple X-Y Scatter**: Enhanced scatter plot with confidence intervals and time color gradient
 - **Time Series Overlay**: Dual-axis comparison over time
 - **Density Heatmap**: 2D histogram showing data concentration
-- **3D Scatter**: Three-dimensional visualization with time axis
+- **3D Scatter Plot**: Three-dimensional visualization with time axis
+- **Seaborn Scatterplot**: Static scatter plot with regression line
+- **Seaborn Heatmap**: Correlation matrix heatmap
+- **Seaborn Correlogram**: Multi-panel view with distributions and statistics
+- **Seaborn Bubble Plot**: Bubble chart with time-encoded size and color
+- **Seaborn Connected Scatter**: Connected scatter showing temporal sequence
 
 #### **Advanced Features**:
 - **Correlation Matrix**: Automatic analysis of all sensor pairs

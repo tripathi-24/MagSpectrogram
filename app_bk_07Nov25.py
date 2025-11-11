@@ -331,7 +331,7 @@ def detect_anomalies_in_spectrogram(sxx: np.ndarray, f: np.ndarray, t: np.ndarra
     return anomaly_freqs, anomaly_times
 
 
-def compute_correlation_analysis(df: pd.DataFrame, sensor1: str, sensor2: str, field: str) -> dict:
+def compute_correlation_analysis(df: pd.DataFrame, sensor1: str, sensor2: str, field1: str, field2: str) -> dict:
     """
     Compute correlation analysis between two sensors for a specific field
     Returns correlation statistics and processed data
@@ -343,16 +343,19 @@ def compute_correlation_analysis(df: pd.DataFrame, sensor1: str, sensor2: str, f
     if sensor1_data.empty or sensor2_data.empty:
         return {"error": "One or both sensors have no data"}
     
-    # Get field values
-    if field == "resultant":
+    # Get field values per sensor
+    if field1 == "resultant":
         sensor1_values = compute_resultant(sensor1_data).values
+    else:
+        sensor1_values = pd.to_numeric(sensor1_data[field1], errors="coerce").dropna().values
+
+    if field2 == "resultant":
         sensor2_values = compute_resultant(sensor2_data).values
     else:
-        sensor1_values = pd.to_numeric(sensor1_data[field], errors="coerce").dropna().values
-        sensor2_values = pd.to_numeric(sensor2_data[field], errors="coerce").dropna().values
+        sensor2_values = pd.to_numeric(sensor2_data[field2], errors="coerce").dropna().values
     
     if len(sensor1_values) == 0 or len(sensor2_values) == 0:
-        return {"error": f"No valid {field} data for one or both sensors"}
+        return {"error": f"No valid data for one or both sensors (fields: {field1}, {field2})"}
     
     # Align data by timestamp for proper correlation
     # Create time-aligned series and handle duplicate timestamps
@@ -408,7 +411,8 @@ def compute_correlation_analysis(df: pd.DataFrame, sensor1: str, sensor2: str, f
     return {
         "sensor1": sensor1,
         "sensor2": sensor2,
-        "field": field,
+        "field1": field1,
+        "field2": field2,
         "n_points": len(common_idx),
         "time_range": (common_start, common_end),
         "pearson_correlation": pearson_corr,
@@ -437,7 +441,9 @@ def plot_correlation_analysis(corr_data: dict):
         st.error(f"Correlation Analysis Error: {corr_data['error']}")
         return
     
-    st.subheader(f"🔗 Correlation Analysis: {corr_data['sensor1']} vs {corr_data['sensor2']} ({corr_data['field']})")
+    st.subheader(
+        f"🔗 Correlation Analysis: {corr_data['sensor1']} [{corr_data['field1']}] vs {corr_data['sensor2']} [{corr_data['field2']}]"
+    )
     
     # Display correlation statistics
     col1, col2, col3, col4 = st.columns(4)
@@ -480,7 +486,7 @@ def plot_correlation_analysis(corr_data: dict):
         fig = make_subplots(
             rows=2, cols=2,
             subplot_titles=[
-                f"Scatter Plot: {corr_data['sensor1']} vs {corr_data['sensor2']}",
+                f"Scatter Plot: {corr_data['sensor1']} [{corr_data['field1']}] vs {corr_data['sensor2']} [{corr_data['field2']}]",
                 "Time Series Comparison",
                 "Residuals Plot",
                 "Correlation Matrix"
@@ -578,15 +584,15 @@ def plot_correlation_analysis(corr_data: dict):
         fig.update_layout(
             height=800,
             showlegend=True,
-            title_text=f"Comprehensive Correlation Analysis: {corr_data['field']} Field"
+            title_text=f"Comprehensive Correlation Analysis: {corr_data['sensor1']} [{corr_data['field1']}] vs {corr_data['sensor2']} [{corr_data['field2']}]"
         )
         
         # Update axes labels
-        fig.update_xaxes(title_text=f"{corr_data['sensor1']} ({corr_data['field']})", row=1, col=1)
-        fig.update_yaxes(title_text=f"{corr_data['sensor2']} ({corr_data['field']})", row=1, col=1)
+        fig.update_xaxes(title_text=f"{corr_data['sensor1']} ({corr_data['field1']})", row=1, col=1)
+        fig.update_yaxes(title_text=f"{corr_data['sensor2']} ({corr_data['field2']})", row=1, col=1)
         
         fig.update_xaxes(title_text="Time", row=1, col=2)
-        fig.update_yaxes(title_text=f"{corr_data['field']} (nT)", row=1, col=2)
+        fig.update_yaxes(title_text=f"{corr_data['field1']} / {corr_data['field2']} (nT)", row=1, col=2)
         
         fig.update_xaxes(title_text="Predicted Values", row=2, col=1)
         fig.update_yaxes(title_text="Residuals", row=2, col=1)
@@ -655,9 +661,9 @@ def plot_correlation_analysis(corr_data: dict):
             ))
         
         fig.update_layout(
-            title=f"Scatter Plot: {corr_data['sensor1']} vs {corr_data['sensor2']} ({corr_data['field']})",
-            xaxis_title=f"{corr_data['sensor1']} ({corr_data['field']}) [nT]",
-            yaxis_title=f"{corr_data['sensor2']} ({corr_data['field']}) [nT]",
+            title=f"Scatter Plot: {corr_data['sensor1']} [{corr_data['field1']}] vs {corr_data['sensor2']} [{corr_data['field2']}]",
+            xaxis_title=f"{corr_data['sensor1']} ({corr_data['field1']}) [nT]",
+            yaxis_title=f"{corr_data['sensor2']} ({corr_data['field2']}) [nT]",
             height=600,
             showlegend=True
         )
@@ -698,10 +704,10 @@ def plot_correlation_analysis(corr_data: dict):
         )
         
         fig.update_layout(
-            title=f"Time Series Comparison: {corr_data['sensor1']} vs {corr_data['sensor2']}",
+            title=f"Time Series Comparison: {corr_data['sensor1']} [{corr_data['field1']}] vs {corr_data['sensor2']} [{corr_data['field2']}]",
             xaxis_title="Time",
-            yaxis=dict(title=f"{corr_data['sensor1']} ({corr_data['field']}) [nT]", side='left'),
-            yaxis2=dict(title=f"{corr_data['sensor2']} ({corr_data['field']}) [nT]", side='right', overlaying='y'),
+            yaxis=dict(title=f"{corr_data['sensor1']} ({corr_data['field1']}) [nT]", side='left'),
+            yaxis2=dict(title=f"{corr_data['sensor2']} ({corr_data['field2']}) [nT]", side='right', overlaying='y'),
             height=600,
             showlegend=True
         )
@@ -736,9 +742,9 @@ def plot_correlation_analysis(corr_data: dict):
         ))
         
         fig.update_layout(
-            title=f"Density Heatmap: {corr_data['sensor1']} vs {corr_data['sensor2']}",
-            xaxis_title=f"{corr_data['sensor1']} ({corr_data['field']}) [nT]",
-            yaxis_title=f"{corr_data['sensor2']} ({corr_data['field']}) [nT]",
+            title=f"Density Heatmap: {corr_data['sensor1']} [{corr_data['field1']}] vs {corr_data['sensor2']} [{corr_data['field2']}]",
+            xaxis_title=f"{corr_data['sensor1']} ({corr_data['field1']}) [nT]",
+            yaxis_title=f"{corr_data['sensor2']} ({corr_data['field2']}) [nT]",
             height=600
         )
         
@@ -766,10 +772,10 @@ def plot_correlation_analysis(corr_data: dict):
         ))
         
         fig.update_layout(
-            title=f"3D Scatter: {corr_data['sensor1']} vs {corr_data['sensor2']} over Time",
+            title=f"3D Scatter: {corr_data['sensor1']} [{corr_data['field1']}] vs {corr_data['sensor2']} [{corr_data['field2']}] over Time",
             scene=dict(
-                xaxis_title=f"{corr_data['sensor1']} ({corr_data['field']}) [nT]",
-                yaxis_title=f"{corr_data['sensor2']} ({corr_data['field']}) [nT]",
+                xaxis_title=f"{corr_data['sensor1']} ({corr_data['field1']}) [nT]",
+                yaxis_title=f"{corr_data['sensor2']} ({corr_data['field2']}) [nT]",
                 zaxis_title="Time (seconds)"
             ),
             height=600
@@ -842,7 +848,7 @@ def correlation_study_interface(df: pd.DataFrame):
             key="corr_sensor2"
         )
     
-    # Field selection
+    # Field selection (per sensor)
     field_options = ["b_x", "b_y", "b_z", "resultant"]
     field_labels = {
         "b_x": "Bx (X-component)",
@@ -850,13 +856,23 @@ def correlation_study_interface(df: pd.DataFrame):
         "b_z": "Bz (Z-component)",
         "resultant": "Resultant Magnitude"
     }
-    
-    selected_field = st.selectbox(
-        "Select Field for Analysis",
-        options=field_options,
-        format_func=lambda x: field_labels[x],
-        key="corr_field"
-    )
+
+    st.markdown("**Field Selection for Each Sensor**")
+    fcol1, fcol2 = st.columns(2)
+    with fcol1:
+        selected_field1 = st.selectbox(
+            f"Field for {sensor1}",
+            options=field_options,
+            format_func=lambda x: field_labels[x],
+            key="corr_field_sensor1"
+        )
+    with fcol2:
+        selected_field2 = st.selectbox(
+            f"Field for {sensor2}",
+            options=field_options,
+            format_func=lambda x: field_labels[x],
+            key="corr_field_sensor2"
+        )
     
     # Time range selection for correlation
     if not df.empty and df["timestamp"].notna().any():
@@ -887,7 +903,7 @@ def correlation_study_interface(df: pd.DataFrame):
     # Run correlation analysis
     if st.button("🔍 Run Correlation Analysis", type="primary"):
         with st.spinner("Computing correlation analysis..."):
-            corr_data = compute_correlation_analysis(df_filtered, sensor1, sensor2, selected_field)
+            corr_data = compute_correlation_analysis(df_filtered, sensor1, sensor2, selected_field1, selected_field2)
             plot_correlation_analysis(corr_data)
     
     # Quick correlation matrix for all sensors
@@ -903,7 +919,7 @@ def correlation_study_interface(df: pd.DataFrame):
             for i, sensor1 in enumerate(available_sensors):
                 for j, sensor2 in enumerate(available_sensors):
                     if i < j:  # Only compute upper triangle
-                        corr_result = compute_correlation_analysis(df_filtered, sensor1, sensor2, field)
+                        corr_result = compute_correlation_analysis(df_filtered, sensor1, sensor2, field, field)
                         if "error" not in corr_result:
                             field_correlations[f"{sensor1} vs {sensor2}"] = corr_result['pearson_correlation']
             

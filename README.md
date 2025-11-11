@@ -43,7 +43,7 @@ Run
 
 ### Data Visualization
 ```bash
-streamlit run app.py
+streamlit run app_v2_07Nov25.py
 ```
 
 ### ML Classification
@@ -78,6 +78,7 @@ Usage
   - Interactive controls for time range selection and tolerance settings
   - Rich visualizations with actual timestamps or overlaid time-of-day and quality metrics
 - **Interactive Visualizations**: Time series and spectrograms with Plotly (pan/zoom).
+- **🔗 Correlation Study**: Analyze relationships between sensors and field components with 10 visualization methods (5 Plotly interactive + 5 Seaborn static), statistical analysis (Pearson, Spearman, R², p-values), and session state persistence.
 - **Troubleshooting Guide**: Built-in diagnostics for flat spectrograms and signal quality issues.
 
 ### ML Classification App
@@ -116,6 +117,12 @@ Features
 - **Real-time Analysis**: Support for large datasets with efficient processing
 - **Enhanced Debugging**: Detailed diagnostics and error handling for better user experience
 - **Troubleshooting Guide**: Built-in help for common issues like flat spectrograms
+- **Correlation Analysis**:
+  - **Sensor Comparison**: Compare any two sensors with independent field selection (Bx, By, Bz, or resultant)
+  - **Statistical Metrics**: Pearson and Spearman correlation, R², p-values with automatic interpretation
+  - **10 Visualization Methods**: Comprehensive Dashboard, Simple X-Y Scatter, Time Series Overlay, Density Heatmap, 3D Scatter Plot (Plotly), plus Seaborn Scatterplot, Heatmap, Correlogram, Bubble Plot, Connected Scatter
+  - **Session State**: Correlation data persists when switching visualization methods
+  - **Correlation Matrix**: Automatic analysis of all sensor pairs with network graphs and heatmaps
 
 Notes (30 Oct 2025)
 -------------------

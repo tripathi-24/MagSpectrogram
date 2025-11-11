@@ -4,7 +4,7 @@
 
 ### **Main Data Visualization App:**
 ```bash
-streamlit run app_simplified_v2.py
+streamlit run app_v2_07Nov25.py
 ```
 
 ### **Sampling Rate Analyzer:**
@@ -21,11 +21,14 @@ python3 analyze_sampling_rate.py
 
 ### **Correlation Study Features:**
 - **🔍 Sensor Comparison**: Select any two sensors for correlation analysis
-- **📈 Field Selection**: Choose Bx, By, Bz, or resultant magnetic field
-- **📊 Statistical Analysis**: Pearson and Spearman correlation coefficients
-- **📉 Comprehensive Visualizations**: Scatter plots, time series, residuals, correlation matrix
+- **📈 Field Selection**: Choose Bx, By, Bz, or resultant magnetic field (per sensor)
+- **📊 Statistical Analysis**: Pearson and Spearman correlation coefficients with R² and p-values
+- **📉 Comprehensive Visualizations**: 
+  - **Plotly (Interactive)**: Comprehensive Dashboard, Simple X-Y Scatter, Time Series Overlay, Density Heatmap, 3D Scatter Plot
+  - **Seaborn (Static)**: Scatterplot, Heatmap, Correlogram, Bubble Plot, Connected Scatter
 - **🎯 Significance Testing**: P-values and statistical interpretation
 - **⏰ Time Range Selection**: Focus on specific time periods
+- **💾 Session State**: Correlation data persists when switching visualization methods
 
 ### **Sampling Rate Analyzer Interface:**
 - **📁 File Selection**: Click "Browse for CSV File" to select your data file
@@ -136,7 +139,7 @@ brew install python-tk           # macOS with Homebrew
 ## 🔗 **Correlation Study - Step by Step**
 
 ### **1. Load Your Data**
-1. Run: `streamlit run app_simplified_v2.py`
+1. Run: `streamlit run app_v2_07Nov25.py`
 2. Click "Import Data" to upload your CSV files
 3. Or check "Load all CSVs from ./Dataset" for quick loading
 
@@ -147,7 +150,7 @@ brew install python-tk           # macOS with Homebrew
 ### **3. Select Sensors and Field**
 1. **Choose First Sensor**: Select from the dropdown menu
 2. **Choose Second Sensor**: Select a different sensor from the dropdown
-3. **Select Field**: Choose Bx, By, Bz, or Resultant Magnitude
+3. **Select Field for Each Sensor**: Choose Bx, By, Bz, or Resultant Magnitude for each sensor independently
 4. **Set Time Range**: Use the slider to select your analysis period
 
 ### **4. Run Analysis**
@@ -156,14 +159,18 @@ brew install python-tk           # macOS with Homebrew
 3. View comprehensive results with multiple visualizations
 
 ### **5. Interpret Results**
-- **Correlation Coefficients**: Pearson and Spearman values
+- **Correlation Coefficients**: Pearson and Spearman values with R²
 - **Statistical Significance**: P-values and interpretation
-- **Visual Analysis**: Scatter plots, time series, residuals
+- **Visual Analysis**: Choose from 10 different visualization methods
+  - Switch between visualization methods using the dropdown - data persists in session state
+  - Interactive Plotly visualizations for exploration
+  - Static Seaborn visualizations for publications
 - **Correlation Matrix**: Heatmap showing relationship strength
 
 ### **6. Additional Features**
 - **Correlation Matrix for All Sensors**: Check the box to see all sensor pair correlations
 - **Detailed Statistics**: Expand the statistics section for more information
+- **Visualization Method Switching**: Change visualization methods without re-running analysis (data stored in session state)
 
 ## 🚀 **Quick Start - Sampling Rate Analyzer**
 

@@ -1,14 +1,19 @@
-streamlit>=1.37
-pandas>=2.0
-numpy>=1.24
-plotly>=5.22
-scipy>=1.11
+# Core dependencies for MagSpectrogram app
+streamlit>=1.37.0
+pandas>=2.0.0
+numpy>=1.24.0
+plotly>=5.22.0
+scipy>=1.11.0
+seaborn>=0.12.0
+matplotlib>=3.7.0
+
+# Machine learning dependencies (if using ML features)
 scikit-learn>=1.3.0
 joblib>=1.3.0
 
 # Optional for CWT scalogram
 PyWavelets>=1.5.0
 
-# Optional Data_fetch python script
- mysql-connector-python pandas
+# Optional for Data_fetch python script
+mysql-connector-python>=8.0.0
 
