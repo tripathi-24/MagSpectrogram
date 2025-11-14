@@ -2,7 +2,12 @@
 
 ## 🚀 **How to Run**
 
-### **Main Data Visualization App:**
+### **Main Data Visualization App (Simplified & Cleaned):**
+```bash
+streamlit run app_12_Nov.py
+```
+
+### **Alternative Data Visualization App:**
 ```bash
 streamlit run app_simplified_v2.py
 ```
@@ -15,9 +20,23 @@ python3 analyze_sampling_rate.py
 ## 📋 **Features**
 
 ### **Main Data Visualization Interface:**
-- **📊 Data Visualization Tab**: Time series plots and spectrograms
-- **🔗 Correlation Study Tab**: NEW! Compare sensors and analyze relationships
+- **📊 Data Visualization Tab**: Time series plots and spectrograms with **anomaly detection and highlighting**
+- **🔗 Correlation Study Tab**: Compare sensors and analyze relationships
 - **ℹ️ About Tab**: Application information and help
+
+### **🆕 Anomaly Detection Features (app_12_Nov.py):**
+- **🔍 Time Series Anomaly Detection**: Automatically detects and highlights anomalous regions in time series plots
+  - **Light red (light coral) shaded regions with red borders** mark anomaly time ranges (highly visible)
+  - Uses enhanced multi-method detection (z-score, IQR, rolling window, change points, percentiles)
+  - Clean visualization without marker clutter
+- **🔍 Spectrogram Anomaly Detection**: Detects anomalies in frequency-time space
+  - Red shaded regions highlight anomaly time periods
+  - Red 'X' markers show specific anomaly frequency-time points
+  - Groups anomalies into regions for better visualization
+- **⚙️ Unified Controls**: Single control panel for both time series and spectrogram anomaly detection
+  - Enable/disable separately for time series and spectrogram
+  - Adjustable z-score threshold (1.0 to 5.0, default: 2.0)
+  - Real-time anomaly count and region statistics
 
 ### **Correlation Study Features:**
 - **🔍 Sensor Comparison**: Select any two sensors for correlation analysis
@@ -133,10 +152,41 @@ brew install python-tk           # macOS with Homebrew
 - Ensure the timestamp column is properly formatted
 - Verify the file isn't corrupted
 
+## 🔍 **Anomaly Detection - Step by Step**
+
+### **1. Load Your Data**
+1. Run: `streamlit run app_12_Nov.py`
+2. Click "📁 Import Data" to upload your CSV files
+3. Or check "Load all CSVs from ./Dataset" for quick loading
+
+### **2. Enable Anomaly Detection**
+1. Select "Time Series & Spectrogram" visualization mode
+2. Expand "🔍 Anomaly Detection" in the sidebar
+3. Enable "Time Series Anomaly Detection" (default: ON)
+4. Enable "Spectrogram Anomaly Detection" (default: ON)
+5. Adjust "Anomaly Threshold (z-score)" as needed (default: 2.0)
+   - Lower values (1.0-1.5): More sensitive, detects more anomalies
+   - Higher values (3.0-5.0): Less sensitive, only detects extreme anomalies
+
+### **3. View Anomalies**
+- **Time Series Plot**: 
+  - **Light red (light coral) shaded vertical regions with red borders** indicate anomaly time ranges (highly visible)
+  - Clean visualization without marker clutter
+  - Regions are placed below the plot layer so they don't obscure the data
+- **Spectrogram Plot**:
+  - Red shaded regions highlight anomaly time periods
+  - Red 'X' markers show anomaly frequency-time coordinates
+  - Summary shows total anomaly points and regions found
+
+### **4. Interpret Results**
+- **Z-Score > 2.0**: Values more than 2 standard deviations from mean (moderate anomalies)
+- **Z-Score > 3.0**: Values more than 3 standard deviations from mean (strong anomalies)
+- **Z-Score > 4.0**: Values more than 4 standard deviations from mean (extreme anomalies)
+
 ## 🔗 **Correlation Study - Step by Step**
 
 ### **1. Load Your Data**
-1. Run: `streamlit run app_simplified_v2.py`
+1. Run: `streamlit run app_12_Nov.py` or `streamlit run app_simplified_v2.py`
 2. Click "Import Data" to upload your CSV files
 3. Or check "Load all CSVs from ./Dataset" for quick loading
 
