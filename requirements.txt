@@ -16,4 +16,5 @@ PyWavelets>=1.5.0
 
 # Optional for Data_fetch python script
 mysql-connector-python>=8.0.0
-
+scikit-learn 
+tensorflow
