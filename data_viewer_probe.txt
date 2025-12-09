@@ -1,0 +1,405 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magnetic Data Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="/static/qnav/js/dsp.js"></script>
+    <style>
+        circle {
+            display: none;
+        }
+
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 2rem 0; /* Add padding for scroll */
+        }
+        .chart-container {
+            background-color: #ffffff;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 1000px; /* Set a max-width */
+            box-sizing: border-box;
+        }
+        .chart-svg, .spectrogram-canvas {
+            display: block;
+            margin: auto;
+            background-color: #f9fafb;
+            border-radius: 0.5rem;
+        }
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #cbd5e1;
+            shape-rendering: crispEdges;
+        }
+        .axis text {
+            font-size: 0.875rem;
+            fill: #64748b;
+        }
+        .line-bx {
+            fill: none;
+            stroke: #ef4444;
+            stroke-width: 2px;
+        }
+        .line-by {
+            fill: none;
+            stroke: #22c55e;
+            stroke-width: 2px;
+        }
+        .line-bz {
+            fill: none;
+            stroke: #3b82f6;
+            stroke-width: 2px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-right: 1.5rem;
+        }
+        .legend-color-box {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 0.25rem;
+            margin-right: 0.5rem;
+        }
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border-radius: 0.5rem;
+            pointer-events: none;
+            font-size: 0.875rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        /* NEW: Styles for the spectrogram container */
+        .spectrogram-wrapper {
+            position: relative;
+        }
+        .spectrogram-axis-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none; /* Allows interaction with elements underneath */
+        }
+    </style>
+</head>
+    <body>
+        <div class="chart-container">
+            <h2>Select a Sensor:</h2>
+            <select id="sensorDropdown">
+                <option value="">Loading sensors...</option>
+            </select>
+            <p>Selected Sensor: <strong id="selectedSensorOutput">None</strong></p>
+    
+            <h1 class="text-2xl font-bold text-center text-gray-800 my-6">Magnetic Data Time Series</h1>
+            <div id="chart" class="chart-svg"></div>
+            <div class="flex justify-center mt-4 text-gray-700 text-sm">
+                <div class="legend-item"><div class="legend-color-box bg-red-500"></div><span>B_x</span></div>
+                <div class="legend-item"><div class="legend-color-box bg-green-500"></div><span>B_y</span></div>
+                <div class="legend-item"><div class="legend-color-box bg-blue-500"></div><span>B_z</span></div>
+            </div>
+    
+            <hr class="my-8 border-gray-200">
+            <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">B_x Spectrogram</h1>
+            <div id="spectrogram-wrapper" class="spectrogram-wrapper">
+                 <canvas id="spectrogram-canvas" class="spectrogram-canvas"></canvas>
+                 <svg id="spectrogram-axis-svg" class="spectrogram-axis-svg"></svg>
+            </div>
+            <div class="flex justify-center mt-2 text-gray-700 text-sm">
+                 <span>Time (most recent data on the right)</span>
+            </div>
+    
+    
+            <div id="message-box" class="mt-4 p-3 text-center text-sm rounded-lg hidden"></div>
+            <div id="loading-indicator" class="mt-4 text-center text-blue-600 hidden">
+                <svg class="animate-spin h-5 w-5 mr-3 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" style="display: flex"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Gathering real time data...
+            </div>
+        </div>
+    
+        <script>
+            const max_points = 512;
+            // Chart dimensions
+            const margin = { top: 20, right: 30, bottom: 60, left: 70 };
+            const width = 900 - margin.left - margin.right;
+            const height = 500 - margin.top - margin.bottom;
+        
+            // Append SVG for Time Series Chart
+            const svg = d3.select("#chart")
+                .append("svg")
+                .attr("width", "100%")
+                .attr("height", height + margin.top + margin.bottom)
+                .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                .attr("preserveAspectRatio", "xMidYMid meet")
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+        
+            // Scales for Time Series Chart
+            const xScale = d3.scaleTime().range([0, width]);
+            const yScale = d3.scaleLinear().range([height, 0]);
+        
+            // Axes for Time Series Chart
+            const xAxis = svg.append("g").attr("class", "x axis").attr("transform", `translate(0,${height})`);
+            const yAxis = svg.append("g").attr("class", "y axis");
+            svg.append("text").attr("transform", "rotate(-90)").attr("y", 0 - margin.left).attr("x", 0 - (height / 2)).attr("dy", "1em").style("text-anchor", "middle").text("Magnetic Field (nT)");
+            svg.append("text").attr("transform", `translate(${width / 2}, ${height + margin.bottom - 10})`).style("text-anchor", "middle").text("Timestamp");
+        
+            // Line generators
+            const lineBx = d3.line().x(d => xScale(d.timestamp)).y(d => yScale(d.b_x));
+            const lineBy = d3.line().x(d => xScale(d.timestamp)).y(d => yScale(d.b_y));
+            const lineBz = d3.line().x(d => xScale(d.timestamp)).y(d => yScale(d.b_z));
+        
+            let allData = [];
+            let latestTimestamp = null;
+            let chosen_sensor_id = 'BLANK';
+        
+            const messageBox = document.getElementById('message-box');
+            const loadingIndicator = document.getElementById('loading-indicator');
+        
+            // --- SPECTROGRAM SETUP ---
+            const specMargin = { top: 0, right: 0, bottom: 0, left: 70 };
+            const specWidth = width + margin.left + margin.right - specMargin.left - specMargin.right;
+            const specHeight = 250;
+        
+            const specCanvas = document.getElementById('spectrogram-canvas');
+            const specCtx = specCanvas.getContext('2d');
+            specCanvas.width = specWidth;
+            specCanvas.height = specHeight;
+            specCtx.fillStyle = '#f9fafb';
+            specCtx.fillRect(0, 0, specWidth, specHeight);
+        
+            // SVG for the spectrogram axis ticks
+            const specAxisSvg = d3.select("#spectrogram-axis-svg")
+                    .attr("width", specMargin.left)
+                    .attr("height", specHeight);
+            
+            const specAxisGroup = specAxisSvg.append("g")
+                    .attr("transform", `translate(${specMargin.left}, 0)`);
+            
+            // ✨ NEW: Add Y-axis label to the spectrogram SVG
+            specAxisSvg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 15) // Position from the left edge of the SVG
+                .attr("x", 0 - (specHeight / 2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .style("font-size", "0.875rem")
+                .style("fill", "#64748b")
+                .text("Frequency (Hz)");
+        
+            // Spectrogram parameters
+            const FFT_SIZE = 256;
+            const HOP_LENGTH = FFT_SIZE / 4;
+            
+            let fft = null; 
+            let spectrogramBuffer = [];
+            let processedDataCount = 0;
+            let processedSpectrogramDataCount = 0;
+            let samplingRate = null;
+        
+            const ySpecScale = d3.scaleLinear().range([specHeight, 0]);
+            const colorScale = d3.scaleSequential(d3.interpolateViridis)
+                                .domain([-120, 20]); 
+        
+            function showMessage(message, type = 'info') {
+                    messageBox.textContent = message;
+                    messageBox.className = 'mt-4 p-3 text-center text-sm rounded-lg';
+                    if (type === 'success') messageBox.classList.add('bg-green-100', 'text-green-800');
+                    else if (type === 'error') messageBox.classList.add('bg-red-100', 'text-red-800');
+                    else messageBox.classList.add('bg-blue-100', 'text-blue-800');
+            }
+        
+            function showLoading(isLoading) {
+                    loadingIndicator.classList.toggle('hidden', !isLoading);
+            }
+        
+            async function fetchData() {
+                showLoading(true);
+                let apiUrl = `https://www.qnaviitk.ai/magnavis/api/magnetic-data/?sensor_id=${chosen_sensor_id}`;
+                if (latestTimestamp) {
+                    apiUrl += `&since=${latestTimestamp}`;
+                }
+        
+                try {
+                    const response = await fetch(apiUrl);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const newData = await response.json();
+        
+                    if (newData.length > 0) {
+                        const parsedNewData = newData.map(d => ({ ...d, timestamp: new Date(d.timestamp.slice(0, -1)+ '+05:30') }));
+                        const existingTimestamps = new Set(allData.map(d => d.timestamp.toISOString()));
+                        const uniqueNewData = parsedNewData.filter(d => !existingTimestamps.has(d.timestamp.toISOString()));
+        
+                        allData = [...allData, ...uniqueNewData].sort((a, b) => a.timestamp - b.timestamp);
+                        if (allData.length > max_points) {
+                            const removedCount = allData.length - max_points;
+                            allData = allData.slice(removedCount);
+                            processedDataCount = Math.max(0, processedDataCount - removedCount);
+                        }
+                        latestTimestamp = allData[allData.length - 1].timestamp.toISOString().slice(0, -1)+ '-05:30';
+                        showMessage(`Fetched ${uniqueNewData.length} new data points.`, 'success');
+                    } else {
+                        showMessage('No new data points found.', 'info');
+                    }
+                    updateVisuals();
+                } catch (error) {
+                    console.error("Error fetching data:", error);
+                    showMessage(`Failed to fetch data: ${error.message}`, 'error');
+                }
+            }
+        
+            function updateVisuals() {
+                if (allData.length === 0) {
+                    svg.selectAll(".line-bx, .line-by, .line-bz").data([]).join("path");
+                    return;
+                }
+                updateLineChart();
+                updateSpectrogram();
+                processedSpectrogramDataCount = processedDataCount;
+            }
+        
+            function updateLineChart() {
+                xScale.domain(d3.extent(allData, d => d.timestamp));
+                yScale.domain([
+                    d3.min(allData, d => Math.min(d.b_x, d.b_y, d.b_z)) * 1.05,
+                    d3.max(allData, d => Math.max(d.b_x, d.b_y, d.b_z)) * 1.05
+                ]);
+                xAxis.transition().duration(500).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%H:%M:%S")));
+                yAxis.transition().duration(500).call(d3.axisLeft(yScale));
+                svg.selectAll(".line-bx").data([allData]).join("path").attr("class", "line-bx").transition().duration(500).attr("d", lineBx);
+                svg.selectAll(".line-by").data([allData]).join("path").attr("class", "line-by").transition().duration(500).attr("d", lineBy);
+                svg.selectAll(".line-bz").data([allData]).join("path").attr("class", "line-bz").transition().duration(500).attr("d", lineBz);
+            }
+        
+            function updateSpectrogram() {
+                console.log('allData:', allData);
+                const newPoints = allData.slice(processedSpectrogramDataCount);
+                if (newPoints.length === 0) return;
+        
+                console.log('newPoints', newPoints);
+                newPoints.forEach(p => spectrogramBuffer.push(p.b_x));
+                processedDataCount = allData.length;
+        
+                if (!samplingRate && allData.length > 1) {
+                    const timeDiffs = allData.slice(1, Math.min(51, allData.length)).map((d, i) => (d.timestamp - allData[i].timestamp) / 1000);
+                    const avgTimeDiff = timeDiffs.reduce((a, b) => a + b, 0) / timeDiffs.length;
+                    if (avgTimeDiff > 0) {
+                            samplingRate = 1 / avgTimeDiff;
+                            console.log(`Estimated Sampling Rate: ${samplingRate.toFixed(2)} Hz`);
+                            ySpecScale.domain([0, samplingRate / 2]);
+                            const ySpecAxis = d3.axisLeft(ySpecScale).ticks(5);
+                            specAxisGroup.call(ySpecAxis); // Draw ticks in the group
+                            fft = new FFT(FFT_SIZE, samplingRate);
+                    }
+                }
+                
+                if (!fft) return;
+                
+                console.log('fft complete');
+                console.log('spectrogramBuffer.length', spectrogramBuffer.length);
+                console.log('FFT_SIZE', FFT_SIZE);
+                while (spectrogramBuffer.length >= FFT_SIZE) {
+                    const chunk = spectrogramBuffer.slice(0, FFT_SIZE);
+                    console.log('fft forward');
+                    fft.forward(chunk);
+                    const magnitudesDb = fft.spectrum;
+                    
+                    console.log("Spectrogram dB values:", magnitudesDb); 
+        
+                    specCtx.drawImage(specCanvas, -1, 0, specWidth, specHeight);
+        
+                    for (let i = 0; i < magnitudesDb.length; i++) {
+                        const y = ySpecScale(i * (samplingRate / FFT_SIZE));
+                        const nextY = ySpecScale((i + 1) * (samplingRate / FFT_SIZE));
+                        const rectHeight = Math.max(1, y - nextY);
+        
+                        specCtx.fillStyle = colorScale(magnitudesDb[i]);
+                        specCtx.fillRect(specWidth - 1, nextY, 1, rectHeight);
+                    }
+        
+                    spectrogramBuffer.splice(0, HOP_LENGTH);
+                }
+            }
+            
+            function resetVisuals() {
+                allData = [];
+                latestTimestamp = null;
+                spectrogramBuffer = [];
+                processedDataCount = 0;
+                samplingRate = null;
+                fft = null;
+                
+                updateVisuals(); 
+                
+                specCtx.fillStyle = '#f9fafb';
+                specCtx.fillRect(0, 0, specWidth, specHeight);
+                
+                specAxisGroup.selectAll("*").remove();
+            }
+        
+            window.onload = function() {
+                const sensorDropdown = document.getElementById('sensorDropdown');
+                const selectedSensorOutput = document.getElementById('selectedSensorOutput');
+                const sensorsApiUrl = 'https://www.qnaviitk.ai/magnavis/api/magnetic-data/?sensor_id=UNKNOWN';
+        
+                async function populateSensorDropdown() {
+                    try {
+                        const response = await fetch(sensorsApiUrl);
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        const sensors = await response.json();
+                        sensorDropdown.innerHTML = '<option value="">Please select a sensor</option>';
+                        sensors.forEach(sensor => {
+                            const option = document.createElement('option');
+                            option.value = sensor['sensor_id'];
+                            const lastActive = new Date(sensor["latest_timestamp"].slice(0, -1)+'+05:30');
+                            const now = new Date();
+                            const minutesAgo = (now - lastActive) / (1000 * 60);
+                            const statusEmoji = minutesAgo <= 5 ? '🟢' : '🔴';
+                            option.textContent = `${statusEmoji} ${sensor['sensor_id']}`;
+                            sensorDropdown.appendChild(option);
+                        });
+                    } catch (error) {
+                        console.error('Error fetching sensor data:', error);
+                        sensorDropdown.innerHTML = '<option value="">Error loading sensors</option>';
+                    }
+                }
+                populateSensorDropdown();
+        
+                sensorDropdown.addEventListener('change', function() {
+                    const selectedValue = sensorDropdown.value;
+                    if (selectedValue) {
+                        selectedSensorOutput.textContent = selectedValue;
+                        chosen_sensor_id = selectedValue;
+                        resetVisuals();
+                        fetchData();
+                    } else {
+                        selectedSensorOutput.textContent = 'None';
+                        chosen_sensor_id = 'BLANK';
+                        resetVisuals();
+                    }
+                });
+        
+                setInterval(fetchData, 2000);
+            };
+        </script>
+    </body>
+<script>'undefined'=== typeof _trfq || (window._trfq = []);'undefined'=== typeof _trfd && (window._trfd=[]),_trfd.push({'tccl.baseHost':'secureserver.net'},{'ap':'cpsh-oh'},{'server':'p3plzcpnl509585'},{'dcenter':'p3'},{'cp_id':'10435053'},{'cp_cl':'8'}) // Monitoring performance to make your website faster. If you want to opt-out, please contact web hosting support.</script><script src='https://img1.wsimg.com/traffic-assets/js/tccl.min.js'></script></html>
